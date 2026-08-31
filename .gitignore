@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Keypairs - NEVER commit these
+*.json.key
+keypairs/
+*-keypair.json
+wallet.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test output
+coverage/
+
+# Temp
+.tmp/
+.cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Blueprint generated local state (not part of a feature commit)
+blueprint/.state/
