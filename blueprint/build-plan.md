@@ -76,7 +76,7 @@ cleaned-up checkbox version before generating the project overview.
 
 - [ ] 1. **Core helpers** - connection factory, keypair loading from a gitignored
   path, devnet SOL funding, and base-unit amount conversion
-- [ ] 2. **Fee and distribution math** - pure module for fee calculation,
+- [x] 2. **Fee and distribution math** - pure module for fee calculation,
   inverse-fee gross-up, pro-rata shares, dust, and exclusions, fully unit tested
   with no network access
 
