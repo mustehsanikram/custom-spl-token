@@ -3,9 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx src/index.ts",
+    "keygen": "tsx src/scripts/keygen.ts",
     "build": "tsc --build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

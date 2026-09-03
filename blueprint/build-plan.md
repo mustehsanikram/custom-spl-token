@@ -74,8 +74,9 @@ cleaned-up checkbox version before generating the project overview.
 
 ### Foundations
 
-- [ ] 1. **Core helpers** - connection factory, keypair loading from a gitignored
-  path, and devnet SOL funding
+- [x] 1. **Core helpers** - connection factory, keypair loading from a gitignored
+  path, and devnet SOL funding (devnet funding proof deferred; see
+  blueprint/history/features/01-core-helpers.md)
 - [x] 2. **Fee and distribution math** - pure module for fee calculation,
   inverse-fee gross-up, pro-rata shares, dust, and exclusions, fully unit tested
   with no network access

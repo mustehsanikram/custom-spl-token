@@ -198,6 +198,7 @@ checks do not make the Blueprint unusable.
 
 - Install: `npm install`
 - Run entry point: `npm run dev` (prints resolved config and pings the configured RPC)
+- Generate a keypair: `npm run keygen` (optionally `npm run keygen -- ./path/to/key.json`)
 - Build: `npm run build` (emits to `dist/`)
 - Typecheck: `npm run typecheck`
 - Test: `npm test` (Vitest, run once) / `npm run test:watch`
