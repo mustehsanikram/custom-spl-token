@@ -1,6 +1,6 @@
 # Custom Solana SPL Token - Project Overview
 
-<!-- blueprint:source-hash fe6f30c60a5ee657ba25dc40e6cb26cf0c30ba36fe83328c7da8c7c7913b6fa5 -->
+<!-- blueprint:source-hash ce5c264cc162b6568bd6b8d8270519a656f616cdb1aa7db1b3684a823251a7ae -->
 
 > **Generated file. Don't hand-edit.** Re-run `/overview` when `project-plan.md`
 > or `build-plan.md` changes materially.
@@ -37,17 +37,22 @@ it has failed.
 In `build-plan.md` order. Item 10 is the headline: everything else exists to make
 it work.
 
-1. **Core helpers** - connection factory, keypair loading from a gitignored path, devnet SOL funding, base-unit amount conversion.
-2. **Fee and distribution math** - pure module for fee calculation, inverse-fee gross-up, pro-rata shares, dust, and exclusions. No network. Carries most of the test value.
-3. **Mint creation** - Token-2022 mint with the TransferFee extension at 1 percent, config and withdraw authorities set.
-4. **Allocation and revocation** - mint the fixed 1,000,000 supply directly into holder and treasury accounts, then permanently revoke the mint authority.
-5. **Fee rate scheduling** - schedule the change to 2 percent and read back the pending config with its activation epoch.
-6. **Fee-accruing transfers** - `transferChecked` between holders, with per-account withheld amounts read back and reconciled against the expected fee.
-7. **Harvest and withdraw** - harvest withheld amounts to the mint, withdraw them into the treasury.
-8. **Holder snapshot** - enumerate token accounts at a point in time, apply exclusions, produce the eligible balance set.
-9. **Cashback distribution** - grossed-up pro-rata payouts, pre-flight treasury sufficiency check, dust retained.
-10. **One-command demo** - orchestrate the full lifecycle with staged output, a summary table, and a signature for every transaction. **Headline.**
-11. **README and recorded run** - setup reproducible from a clean clone, plus a recorded devnet run with verifiable signatures.
+| # | Feature | Delivers | Status |
+|---|---|---|---|
+| 1 | Core helpers | Connection factory, keypair loading from a gitignored path, devnet SOL funding | Next |
+| 2 | Fee and distribution math | Pure fee, gross-up, pro-rata, dust, and exclusion logic. No network. | **Shipped** |
+| 3 | Mint creation | Token-2022 mint with the TransferFee extension at 1 percent, authorities set | Pending |
+| 4 | Allocation and revocation | Mint 1,000,000 directly into holder and treasury accounts, then revoke | Pending |
+| 5 | Fee rate scheduling | Schedule the change to 2 percent, read back the pending activation epoch | Pending |
+| 6 | Fee-accruing transfers | `transferChecked` between holders; reconcile withheld amounts against predicted fees | Pending |
+| 7 | Harvest and withdraw | Harvest withheld to the mint, withdraw into the treasury | Pending |
+| 8 | Holder snapshot | Enumerate token accounts at a point in time, apply exclusions | Pending |
+| 9 | Cashback distribution | Grossed-up pro-rata payouts with a pre-flight sufficiency check | Pending |
+| 10 | One-command demo | Orchestrate the lifecycle with staged output and a signature per transaction | Pending |
+| 11 | README and recorded run | Clean-clone setup plus a recorded devnet run with verifiable signatures | Pending |
+
+Feature 6 is where the fee arithmetic gets its empirical confirmation: predicted
+fees are reconciled against the withheld amounts the chain actually reports.
 
 ## Data model
 
@@ -79,28 +84,22 @@ touch disk. A fresh mint is created every run, so nothing carries between runs.
 - `address` (PublicKey) - associated token account for (owner, mint) under the Token-2022 program
 - `owner` (PublicKey)
 - `amount` (u64) - balance in base units
-- extension: `TransferFeeAmount.withheldAmount` (u64) - fee skimmed on receipt, held here until harvested
+- extension: `TransferFeeAmount.withheldAmount` (u64) - fee skimmed on receipt, held until harvested
 
 > Fees accrue on the **recipient's** account, not the sender's. Features 6 and 7
 > depend on this.
 
-### HolderSnapshot (in-process only)
+### In-process contracts (shipped in feature 2)
 
-- `capturedAtSlot` (number)
-- `entries` - array of `{ address, owner, balanceRaw: bigint }`
-- `totalEligibleRaw` (bigint)
-- excludes the treasury, the mint authority, and zero-balance accounts
+Locked and consumed by features 8, 9, and 10. Defined in `src/cashback/types.ts`.
 
-### DistributionPlan (in-process only)
+- `HolderBalance` - `{ tokenAccount: string, owner: string, balanceRaw: bigint }`
+- `DistributionRow` - `{ owner, tokenAccount, balanceRaw, netShareRaw, grossSendRaw, feeRaw }`
+- `DistributionPlan` - `{ distributableRaw, rows, dustRaw, totalGrossRaw, executable, reason? }`
+- `TransferFeeParams` - `{ basisPoints: number, maximumFee: bigint }`, in `src/lib/fee.ts`
 
-- `distributableRaw` (bigint) - treasury balance available this round
-- `rows` - array of `{ owner, balanceRaw, netShareRaw, grossSendRaw, feeRaw }`
-- `dustRaw` (bigint) - remainder, retained in the treasury
-- `totalGrossRaw` (bigint) - must not exceed the treasury balance, or the round aborts before any transfer
-
-> **Locked shape:** every on-chain amount is `bigint` in base units. No `number`
-> and no floating point anywhere in the amount path. Features 2, 8, and 9 all
-> depend on this.
+> **Locked shape:** every on-chain amount is `bigint` base units. No `number` and
+> no floating point anywhere in the amount path.
 
 ## Tech stack
 
@@ -116,9 +115,10 @@ touch disk. A fresh mint is created every run, so nothing carries between runs.
 
 - The transfer-fee extension has **no exemption or whitelist**. Every transfer is taxed, cashback payouts included.
 - `mintTo` is **not** a transfer and is untaxed. This is why allocation uses direct minting rather than treasury transfers.
-- A fee change activates **two epochs later** (an epoch is 432,000 slots, so days). Only the pending state is demonstrable in one run.
+- A fee change activates **two epochs later**. Only the pending state is demonstrable in one run.
 - Fee-extension mints require `transferChecked`. Plain `transfer` fails.
 - `@solana/spl-token` defaults to the legacy token program. `TOKEN_2022_PROGRAM_ID` must be passed explicitly on every call.
+- **The fee rounds up.** `fee = min(ceil(amount * basisPoints / 10000), maximumFee)`. Settled against the client implementation and locked by a 264-combination parity test in feature 2.
 
 **Not installed and not required:** the Solana CLI. Everything runs through
 `@solana/web3.js`.
@@ -173,11 +173,35 @@ SOL transfer from the authority, avoiding airdrop rate limits on repeat runs.
 Mainnet is out of scope. Adding it would require an explicit confirmation flag,
 which is already a stated requirement in `coding-standards.md`.
 
+> First `npm test` after a clean install takes minutes while `web3.js` is
+> transformed. Warm runs are seconds. Belongs in the README at feature 11.
+
 ## Open questions
 
 > Resolve these in the plans, then re-run `/overview`.
 
-- **On-chain fee rounding direction is unverified.** The client library's instruction surface was checked, but not the program's actual rounding rule. The gross-up math in feature 2 depends on it. Confirm empirically rather than assuming.
+**Open decisions.**
+
 - **Token name and symbol undecided.** `TOKEN_NAME` and `TOKEN_SYMBOL` are blank in `.env.example`.
 - **Devnet epoch duration should be read from the chain** when reporting the pending fee activation in feature 5, not quoted from the nominal 432,000-slot figure.
-- **Known and accepted limitation:** a point-in-time snapshot is gameable. A holder can acquire tokens immediately before the snapshot and dispose of them after. Closing this needs time-weighting, which is deliberately out of scope.
+
+**Accepted limitation, not a gap.**
+
+- A point-in-time snapshot is gameable: a holder can acquire tokens immediately
+  before the snapshot and dispose of them after, collecting a share they did not
+  hold through. Closing this needs time-weighting, which is deliberately out of
+  scope. Document it in feature 11 rather than fixing it.
+
+**Constraint raised by feature 2, binding on feature 9.**
+
+- **The treasury can never distribute its full balance.** The gross always
+  exceeds the net, so `distributable === treasuryBalance` is structurally
+  unpayable and `buildDistributionPlan` returns `executable: false`. Feature 9
+  must solve for a distributable amount whose gross fits, roughly
+  `balance * (10000 - basisPoints) / 10000`. No helper exists yet.
+
+**Settled, no longer open.**
+
+- On-chain fee rounding is ceiling division capped at `maximumFee`, locked by a 264-combination parity test.
+- Every target net amount is exactly reachable; the gross-up returns the smallest gross that hits it. Plan and implementation now agree.
+- Build-plan item 1 no longer claims amount conversion, which shipped in feature 2 as `src/lib/amount.ts`.

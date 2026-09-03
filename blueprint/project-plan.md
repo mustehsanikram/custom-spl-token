@@ -209,10 +209,14 @@ project and the main target of the test suite.
   is never assigned to an arbitrary holder.
 - Each payout is grossed up: the send amount is computed so that after the
   transfer fee is deducted, the holder receives exactly their computed share
-- The gross-up must be verified, not assumed. The on-chain fee applies a rounding
-  rule and a cap, so not every target net amount is exactly reachable. Where an
-  exact gross-up is impossible, the rule is to land at or just above the target
-  and record the difference, never below.
+- The gross-up must be verified, not assumed. The on-chain fee rounds up:
+  `fee = min(ceil(amount * basisPoints / 10000), maximumFee)`.
+- Every target net amount is exactly reachable. Because the rate stays far below
+  10000 basis points, the net rises in steps of 0 or 1 as the gross grows, so it
+  never skips a value. The hazard is the opposite: several gross amounts can
+  reach the same net (at 1 percent, both 100 and 101 net 99). The rule is to send
+  the smallest gross that hits the target exactly, so the treasury never
+  overspends.
 - The total grossed-up outflow must not exceed the treasury balance. If it would,
   the round is aborted before any transfer is sent, rather than partially paying
   some holders.
