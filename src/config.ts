@@ -41,11 +41,19 @@ export function loadConfig(): AppConfig {
     throw new Error(`TRANSFER_FEE_BASIS_POINTS must be 0-200 (0-2%), got: ${transferFeeBasisPoints}`);
   }
 
+  const decimals = int("TOKEN_DECIMALS", 9);
+  // A mint's decimals cannot be changed after creation, and Solana tooling
+  // assumes 0 to 9. Anything outside that yields a mint no wallet displays
+  // correctly, so reject it before a transaction is ever built.
+  if (decimals < 0 || decimals > 9) {
+    throw new Error(`TOKEN_DECIMALS must be 0-9, got: ${decimals}`);
+  }
+
   return {
     network,
     rpcUrl,
     authorityKeypairPath: required("AUTHORITY_KEYPAIR_PATH"),
-    decimals: int("TOKEN_DECIMALS", 9),
+    decimals,
     totalSupply: int("TOKEN_TOTAL_SUPPLY", 1_000_000),
     transferFeeBasisPoints,
     transferFeeMaxTokens: int("TRANSFER_FEE_MAX_TOKENS", 1_000_000),

@@ -24,4 +24,23 @@ describe("loadConfig", () => {
     expect(config.transferFeeBasisPoints).toBe(100);
     expect(config.totalSupply).toBe(1_000_000);
   });
+
+  it("rejects decimals outside the range Solana tooling supports", () => {
+    process.env.TOKEN_DECIMALS = "10";
+    expect(() => loadConfig()).toThrow(/TOKEN_DECIMALS must be 0-9, got: 10/);
+
+    process.env.TOKEN_DECIMALS = "-1";
+    expect(() => loadConfig()).toThrow(/TOKEN_DECIMALS must be 0-9/);
+  });
+
+  it("accepts the range boundaries and defaults to 9", () => {
+    process.env.TOKEN_DECIMALS = "0";
+    expect(loadConfig().decimals).toBe(0);
+
+    process.env.TOKEN_DECIMALS = "9";
+    expect(loadConfig().decimals).toBe(9);
+
+    delete process.env.TOKEN_DECIMALS;
+    expect(loadConfig().decimals).toBe(9);
+  });
 });

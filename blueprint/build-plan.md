@@ -84,7 +84,9 @@ cleaned-up checkbox version before generating the project overview.
 ### Token lifecycle
 
 - [ ] 3. **Mint creation** - Token-2022 mint with the TransferFee extension
-  initialized at 1 percent, with config and withdraw authorities set
+  initialized at 1 percent, with config and withdraw authorities set (steps 1-3
+  landed on main; read-back and the standalone command remain, blocked on
+  devnet funding)
 - [ ] 4. **Allocation and revocation** - mint the fixed 1,000,000 supply directly
   into holder and treasury accounts, then permanently revoke the mint authority
 - [ ] 5. **Fee rate scheduling** - schedule the change to 2 percent and read back
