@@ -1,42 +1,45 @@
-# Feature: Mint creation
+# Feature: README and recorded run
 
-**From build-plan:** feature 3
-**Status:** in progress - steps 1-3 landed on main, 4-5 remain
+**From build-plan:** feature 11
+**Status:** in progress
 
 ## Goal
 
-Create the Token-2022 mint on devnet with the TransferFee extension initialized
-at 1 percent, and read the configuration back to prove it took.
+Make the repository understandable and runnable by someone who has never seen
+it: what it is, how to set it up, what each command does, and why the
+non-obvious design decisions are what they are.
 
-This is the first thing the project writes to a chain. Features 4 through 10 all
-operate on the mint this creates.
+The overview names one hard requirement for this project: **reproducible from a
+clean clone**. That has never actually been tested. This feature tests it.
 
-## Precondition
+## Ordering note
 
-**The authority needs devnet SOL.** `4TtRUyS12Kho6mZaXZKWjtEoFhCBY6DNEnBVjWQ13LaK`
-currently holds 0, and steps 3 to 5 cannot run without it. The requirement is
-small (rent for roughly 400 bytes plus a signature fee, on the order of 0.005
-SOL), so any faucet amount is plenty. Steps 1 and 2 are pure and run regardless.
+Item 11 is last in the build plan because it documents a finished project. It is
+being built at 2 of 11 complete, so this spec is scoped to what is stable now:
+setup, commands, and the design decisions behind code that already exists.
 
-This also closes feature 1's deferred devnet evidence.
+Deliberately excluded until the lifecycle exists:
+
+- A walkthrough of minting, transferring, harvesting, or distributing
+- The recorded devnet run (step 4 below, blocked)
+- Any claim that the token works end to end, because it does not yet
+
+The README must not describe features that are not built. A portfolio reader
+discovering the gap themselves is worse than being told.
 
 ## In scope
 
-- Mint account sizing for exactly the TransferFeeConfig extension, and its rent
-- Building the three creation instructions in the required order
-- Sending and confirming the creation transaction
-- Reading the fee configuration back and exposing it as a typed shape
-- A standalone `npm run create-mint` command
-- Validating `TOKEN_DECIMALS` at the config boundary
-- Unit tests for everything computable without a network
+- Rewriting `README.md` for what exists today
+- A design-decisions section covering the four non-obvious Token-2022 behaviors
+- Actually verifying clean-clone reproducibility by cloning and following it
+- An honest status section naming what is and is not built
 
 ## Out of scope
 
-- Minting any supply, or revoking the mint authority (feature 4)
-- Changing the fee rate or reading pending changes (feature 5)
-- Transfers, harvesting, or withdrawal (features 6 and 7)
-- Token metadata (name and symbol on chain); the plan lists it as a non-goal
-- Persisting the mint address anywhere; a fresh mint per run is deliberate
+- `AGENTS.md`, which is the agent-facing guide and already current
+- Blueprint planning docs, which are generated
+- API documentation or generated docs tooling
+- Publishing anywhere beyond the existing GitHub remote
 
 ## Build loop
 
@@ -52,149 +55,75 @@ Never accept a step you haven't read. If a diff is too big to review, the step w
 
 ## Build steps
 
-- [x] **Step 1 - Sizing, rent, and decimals validation** - `src/token/mint.ts` for
-  `mintAccountSpace()` via `getMintLen([ExtensionType.TransferFeeConfig])` and
-  `mintRentLamports(connection)`; plus a `TOKEN_DECIMALS` range check in
-  `src/config.ts`, which currently accepts any integer and would let an
-  unusable mint be configured. *Done when:* the space is asserted against a
-  concrete number in a unit test, decimals outside 0 to 9 throw at startup with
-  a clear message, and the existing config tests still pass.
+- [x] **Step 1 - Setup and commands** - `README.md`. What the project is,
+  requirements (Node 20+, no Solana CLI needed), setup in order (`npm install`,
+  `npm run keygen`, copy `.env.example`, fund on devnet), a commands table, and
+  the project structure. *Done when:* every command listed exists in
+  `package.json` and runs, the env var names match `.env.example` exactly, and
+  no command or feature that is not built is described as available.
 
-- [x] **Step 2 - Build the creation instructions** - `src/token/mint.ts`.
-  `buildCreateMintInstructions(...)` returning, in order: `createAccount` sized
-  and rent-funded, `createInitializeTransferFeeConfigInstruction`, then
-  `createInitializeMint2Instruction`. Nothing is sent. *Done when:* a unit test
-  asserts exactly three instructions, that the latter two target
-  `TOKEN_2022_PROGRAM_ID`, that the fee-config instruction precedes the mint
-  init (the program rejects the reverse), and that both authorities are set to
-  the authority public key.
+- [x] **Step 2 - Design decisions** - `README.md`. A section explaining the four
+  behaviors that make this token non-obvious: the transfer-fee extension has no
+  exemption so payouts are taxed too; `mintTo` is untaxed which is why allocation
+  uses direct minting; the fee rounds up by ceiling division; a rate change
+  activates two epochs later. Plus why gross-up returns the smallest exact
+  amount. *Done when:* each claim names the file or test that proves it, and a
+  reader can verify any one of them by running a single command.
 
-- [ ] **Step 3 - Create the mint on devnet** - `src/token/mint.ts`.
-  `createFeeMint(connection, authority, config)` generating an ephemeral mint
-  keypair, checking the authority can cover rent plus fees via the existing
-  `assertSufficientBalance`, sending, confirming, and returning `CreatedMint`.
-  *Done when:* a devnet run returns a mint address and a signature that resolves
-  on the explorer, and an underfunded authority fails before anything is sent,
-  naming the shortfall.
+- [x] **Step 3 - Verify from a clean clone** - No source change expected.
+  Clone the committed repository into a temporary directory and follow the
+  README verbatim: install, keygen, env, typecheck, test, build, `npm run dev`.
+  Fix whatever the README got wrong. *Done when:* a fresh clone completes every
+  documented step with no undocumented action required, and the transcript is
+  reported. Any correction lands in the same diff.
 
-- [ ] **Step 4 - Read the configuration back** - `src/token/mint.ts`.
-  `readMintFeeState(connection, mint)` using `getMint` and `getTransferFeeConfig`
-  with the Token-2022 program id, returning `MintFeeState`. *Done when:* reading
-  a freshly created mint reports 100 basis points, the configured maximum fee in
-  base units, both authorities equal to the authority public key, a withheld
-  amount of 0, and the supply 0.
-
-- [ ] **Step 5 - Standalone command** - `src/scripts/create-mint.ts`, an
-  `npm run create-mint` script, and the matching `AGENTS.md` entry. Prints the
-  mint address, the read-back fee state, and an explorer link. *Done when:* the
-  command runs end to end against devnet and prints an address that resolves on
-  the explorer with the TransferFee extension visible.
+- [ ] **Step 4 - Recorded devnet run** - `README.md`. A transcript of the real
+  lifecycle with transaction signatures and explorer links.
+  **Blocked, and expected to stay blocked** until the authority holds devnet SOL
+  and features 3 to 10 are built. *Done when:* the README carries at least one
+  real signature that resolves on the Solana explorer for devnet. Do not check
+  this off on a fabricated or illustrative transcript.
 
 ## Files / areas
 
 | File | Purpose |
 |---|---|
-| `src/token/mint.ts` | Sizing, instruction building, creation, read-back (new) |
-| `src/token/types.ts` | `CreatedMint` and `MintFeeState` contracts (new) |
-| `src/scripts/create-mint.ts` | Standalone command (new) |
-| `src/config.ts` | Adds the decimals range check (modified) |
-| `package.json`, `AGENTS.md` | The new command (modified) |
-| `tests/token/mint.test.ts`, `tests/config.test.ts` | New and extended |
+| `README.md` | Rewritten (currently a 41-line scaffold stub) |
+
+No source changes are expected. If step 3 uncovers a genuine setup bug, fix it
+and say so rather than papering over it in prose.
 
 ## Data / contracts
 
-**Load-bearing.** Features 4 through 10 consume these.
-
-```ts
-export interface CreatedMint {
-  readonly mintAddress: string;   // base58
-  readonly signature: string;
-  readonly decimals: number;
-  readonly transferFeeBasisPoints: number;
-  readonly maximumFeeRaw: bigint;
-}
-
-export interface MintFeeState {
-  readonly basisPoints: number;        // currently active rate
-  readonly maximumFeeRaw: bigint;
-  readonly configAuthority: string | null;
-  readonly withdrawAuthority: string | null;
-  readonly olderEpoch: bigint;
-  readonly newerEpoch: bigint;
-  readonly withheldAmountRaw: bigint;  // held at the mint, awaiting withdrawal
-  readonly supplyRaw: bigint;
-  readonly decimals: number;
-}
-```
-
-**Conventions this feature locks in:**
-
-- `TOKEN_2022_PROGRAM_ID` is passed explicitly on every `@solana/spl-token` call.
-  The library defaults to the legacy program and will silently target the wrong one.
-- The mint keypair is **ephemeral**. It signs account creation and is then
-  discarded; the authority controls the mint afterwards. Nothing is persisted,
-  matching the fresh-mint-per-run decision.
-- Because nothing is persisted, **later standalone scripts take the mint address
-  as an argument**. Feature 10's orchestrator passes it in memory instead.
-- `TRANSFER_FEE_MAX_TOKENS` is whole tokens in config and is converted to base
-  units with `tokensToBaseUnits` from feature 2. No new decimal handling.
+None. This feature is documentation.
 
 ## Testing
 
-`npm test` (Vitest) is the gate. Coverage splits the same way as feature 1:
+There is no unit test for prose, so the evidence is different in kind:
 
-| Testable without a network | Proven by a devnet run |
+| Claim | How it is proven |
 |---|---|
-| Mint account space for the extension set | Creation landing, with a signature |
-| Instruction count, order, program ids, authorities | Read-back matching what was configured |
-| Decimals validation at the config boundary | Explorer showing the extension |
-| Maximum-fee conversion to base units | |
+| Commands exist and run | Each executed, output reported |
+| Env var names are correct | Diffed against `.env.example` |
+| Design claims are true | Each names a file or test; the suite is green |
+| Clean clone works | Step 3 actually clones and follows the README |
 
-Instruction building is deliberately separated from sending (steps 2 and 3) so
-the ordering constraint that actually matters can be unit tested rather than
-only observed after a failed transaction.
+Step 3 is the real gate. A README that has not been followed from a clean clone
+is a guess, and this project's stated requirement is precisely that it not be.
+
+`npm test` must still pass afterwards, since step 3 may change source.
 
 ## Notes for the AI
 
-- **Instruction order is a hard requirement.** Extension initialization must come
-  after `createAccount` and before `initializeMint2`. The program rejects a mint
-  initialized before its extensions, and the failure message is unhelpful.
-- **Space must come from `getMintLen`**, never a hardcoded number. Getting it
-  wrong produces an account the program cannot initialize.
-- Freeze authority is `null`. The plan does not call for freezing, and setting an
-  authority nobody intends to use is a liability.
-- Mint authority is set to the authority now and revoked in feature 4. Do not
-  revoke here.
-- Reuse `assertSufficientBalance` from `src/lib/funding.ts` rather than writing a
-  second balance guard.
-- Confirm with `"confirmed"`, then read the mint back at `"confirmed"` before
-  reporting success. Do not report a mint that has not been read back.
-- ESM: relative imports carry the `.js` extension; `import type` for type-only imports.
-- Follow `blueprint/context/coding-standards.md`; amounts stay `bigint` base units.
-
-## Progress note
-
-Steps 1 to 3 were merged to main as a checkpoint so the work is not stranded on
-a branch. **This feature is not complete**, and build-plan item 3 is
-deliberately left unchecked.
-
-| Step | State |
-|---|---|
-| 1 Sizing, rent, decimals validation | Built and unit tested |
-| 2 Creation instructions | Built and unit tested, order pinned by test |
-| 3 Create the mint | Code written; the pre-send balance guard is proven live against devnet, but the mint itself was never created |
-| 4 Read the configuration back | Not written |
-| 5 Standalone `npm run create-mint` | Not written |
-
-**Blocker:** the authority `4TtRUyS12Kho6mZaXZKWjtEoFhCBY6DNEnBVjWQ13LaK` holds
-0 SOL. Measured requirement is 0.002621198 SOL: 0.002571198 rent for the
-278-byte mint account plus a 0.00005 fee reserve. The devnet RPC airdrop
-returned HTTP 429 on every attempt, and no transfer reached the authority.
-
-Proven live rather than assumed:
-
-    Insufficient SOL: holding 0 but need 0.002621198
-    (0.002571198 to send plus 0.00005 reserved for fees).
-
-**To resume:** fund the authority, then run `/implement`. It reads the checked
-steps above and continues from step 3.
+- **Do not describe unbuilt behavior.** Features 3 to 10 are incomplete. The
+  status section says so plainly, including that no mint has been created.
+- **Clone from the local repository**, not GitHub: `main` is ahead of `origin`,
+  so a GitHub clone would miss the most recent commit and test the wrong tree.
+- Use a temp directory outside the project for step 3, and remove it afterwards.
+- Do not commit a keypair, `.env`, or any secret generated during step 3.
+- Mention that the first `npm test` after a clean install is slow, minutes, while
+  `web3.js` is transformed. It looks like a hang and is not.
+- Mention that `bigint: Failed to load bindings` on stderr is the absent native
+  accelerator and is harmless.
+- No em dashes, per `blueprint/context/coding-standards.md`.
+- Keep it scannable: short sections, a commands table, no wall of prose.
