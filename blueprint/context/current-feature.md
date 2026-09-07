@@ -1,7 +1,7 @@
 # Feature: README and recorded run
 
 **From build-plan:** feature 11
-**Status:** in progress
+**Status:** partially verified - steps 1-3 done, step 4 blocked
 
 ## Goal
 
